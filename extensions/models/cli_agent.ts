@@ -65,6 +65,7 @@ const InvocationSchema: z.ZodObject<{
   durationMs: z.ZodNumber;
   outputBytes: z.ZodNumber;
   outputPreview: z.ZodString;
+  outputTokensPerSecond: z.ZodOptional<z.ZodNumber>;
   retries: z.ZodNumber;
   timedOut: z.ZodBoolean;
   timeoutReason: z.ZodOptional<z.ZodString>;
@@ -94,6 +95,7 @@ const InvocationSchema: z.ZodObject<{
   durationMs: z.number(),
   outputBytes: z.number(),
   outputPreview: z.string(),
+  outputTokensPerSecond: z.number().optional(),
   retries: z.number(),
   timedOut: z.boolean(),
   timeoutReason: z.string().optional(),
@@ -423,7 +425,7 @@ type MethodContext = {
  */
 export const model = {
   type: "@mgreten/cli-agent",
-  version: "2026.06.09.1",
+  version: "2026.06.09.2",
   globalArguments: GlobalArgsSchema,
   resources: {
     invocation: {
@@ -549,6 +551,9 @@ export const model = {
         const extractedText = extractTextFromOutput(provider, rawOutput);
         const usage = extractUsage(provider, rawOutput);
         const invocationId = uuid();
+        const outputTokensPerSecond = usage.output && result.durationMs > 0
+          ? Math.round((usage.output / (result.durationMs / 1000)) * 100) / 100
+          : undefined;
 
         const invocation = {
           invocationId,
@@ -563,6 +568,7 @@ export const model = {
           durationMs: result.durationMs,
           outputBytes: rawOutput.length,
           outputPreview: extractedText.slice(0, 1000),
+          outputTokensPerSecond,
           retries,
           timedOut: result.timedOut,
           timeoutReason: result.timeoutReason,
@@ -688,6 +694,9 @@ export const model = {
         const extractedText = extractTextFromOutput(provider, rawOutput);
         const usage = extractUsage(provider, rawOutput);
         const invocationId = uuid();
+        const outputTokensPerSecond = usage.output && result.durationMs > 0
+          ? Math.round((usage.output / (result.durationMs / 1000)) * 100) / 100
+          : undefined;
 
         // Parse JSON from extracted text
         let parsedJson: Record<string, unknown> | null = null;
@@ -716,6 +725,7 @@ export const model = {
           durationMs: result.durationMs,
           outputBytes: rawOutput.length,
           outputPreview: extractedText.slice(0, 1000),
+          outputTokensPerSecond,
           retries,
           timedOut: result.timedOut,
           timeoutReason: result.timeoutReason,
