@@ -252,6 +252,7 @@ function buildClaudeCommand(
     "--verbose",
     "--output-format",
     "stream-json",
+    "--dangerously-skip-permissions",
   ];
   cmd.push(resolvedPrompt);
   return { cmd };
