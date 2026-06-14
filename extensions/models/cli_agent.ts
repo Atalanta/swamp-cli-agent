@@ -376,7 +376,11 @@ interface UsageData {
 
 /**
  * Extract token usage and cost information from a provider's raw output.
- * Currently supports detailed extraction for the Claude provider.
+ *
+ * Claude emits one terminal `result` event with a `usage` object. Opencode
+ * (the path used for local Ollama models) emits one `step_finish` event per
+ * turn, each carrying a `part.tokens` object — so its usage is the SUM across
+ * all such events. Other providers are not yet parsed and return `{}`.
  */
 function extractUsage(provider: string, rawOutput: string): UsageData {
   if (provider === "claude") {
@@ -396,7 +400,47 @@ function extractUsage(provider: string, rawOutput: string): UsageData {
         }
       } catch { /* skip */ }
     }
+    return {};
   }
+
+  if (provider === "opencode") {
+    let input = 0;
+    let output = 0;
+    let cacheRead = 0;
+    let cacheWrite = 0;
+    let reasoning = 0;
+    let costUsd = 0;
+    let sawStep = false;
+
+    for (const line of rawOutput.split("\n")) {
+      try {
+        const event = JSON.parse(line);
+        if (event.type !== "step_finish") continue;
+        const tokens = event.part?.tokens ?? {};
+        input += Number(tokens.input) || 0;
+        output += Number(tokens.output) || 0;
+        reasoning += Number(tokens.reasoning) || 0;
+        cacheRead += Number(tokens.cache?.read) || 0;
+        cacheWrite += Number(tokens.cache?.write) || 0;
+        costUsd += Number(event.part?.cost) || 0;
+        sawStep = true;
+      } catch { /* skip */ }
+    }
+
+    if (!sawStep) return {};
+    return {
+      // Cache reads are input the model still had to attend to; fold them in
+      // to match the ADW Ruby usage_extractor's accounting.
+      input: input + cacheRead,
+      output,
+      cacheRead,
+      cacheWrite,
+      reasoning,
+      total: input + output + cacheRead + cacheWrite,
+      costUsd,
+    };
+  }
+
   return {};
 }
 
@@ -425,7 +469,7 @@ type MethodContext = {
  */
 export const model = {
   type: "@mgreten/cli-agent",
-  version: "2026.06.09.2",
+  version: "2026.06.14.1",
   globalArguments: GlobalArgsSchema,
   resources: {
     invocation: {
@@ -578,6 +622,7 @@ export const model = {
               input: usage.input,
               output: usage.output,
               cacheRead: usage.cacheRead,
+              cacheWrite: usage.cacheWrite,
               total: usage.total,
               reasoning: usage.reasoning,
             }
@@ -735,6 +780,7 @@ export const model = {
               input: usage.input,
               output: usage.output,
               cacheRead: usage.cacheRead,
+              cacheWrite: usage.cacheWrite,
               total: usage.total,
               reasoning: usage.reasoning,
             }
