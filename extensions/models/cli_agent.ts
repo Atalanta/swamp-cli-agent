@@ -76,7 +76,10 @@ const InvocationSchema = z.object({
   }).optional(),
   costUsd: z.number().optional(),
   tags: z.record(z.string(), z.string()).optional(),
-}).passthrough();
+  parsedResponse: z.unknown().optional().describe(
+    "Parsed JSON response from the agent output. Only populated by invokeAndParse.",
+  ),
+});
 
 /**
  * Schema for the untruncated companion record to an invocation: the full
@@ -87,7 +90,7 @@ const TranscriptSchema = z.object({
   invocationId: z.string(),
   prompt: z.string(),
   output: z.string(),
-}).passthrough();
+});
 
 /** Schema for the result of enumerating a provider's available models. */
 const ModelListSchema = z.object({
@@ -95,7 +98,7 @@ const ModelListSchema = z.object({
   models: z.array(z.string()),
   count: z.number(),
   listedAt: z.string(),
-}).passthrough();
+});
 
 /** Exit codes that indicate a transient failure eligible for retry. */
 const TRANSIENT_EXIT_CODES: Set<number> = new Set([137, 143]);
@@ -1055,7 +1058,7 @@ type MethodContext = {
  */
 export const model = {
   type: "@mgreten/cli-agent",
-  version: "2026.06.27.1",
+  version: "2026.06.27.2",
   globalArguments: GlobalArgsSchema,
   resources: {
     invocation: {
